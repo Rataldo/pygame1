@@ -1,6 +1,89 @@
 import pygame 
 from sys import exit # funcion exit termina el codigo de forma segura
-from random import randint
+import random
+from random import randint, choice
+
+
+# classes
+
+class Player(pygame.sprite.Sprite): # se agrega todo el codigo del jugador aca
+    def __init__(self):
+        super().__init__()
+        player_walk_1 = pygame.image.load("graphics/Player/player_walk_1.png").convert_alpha()
+        player_walk_2 = pygame.image.load("graphics/Player/player_walk_2.png").convert_alpha()
+        self.player_walk = [player_walk_1, player_walk_2] # lista con animaciones de caminar
+        self.player_index = 0 # indice para ser usado debajo
+        self.player_jump = pygame.image.load("graphics/Player/jump.png").convert_alpha()
+    
+        self.image = self.player_walk[self.player_index]
+        self.rect = self.image.get_rect(midbottom = (80, 300))
+        self.gravity = 0
+        
+        self.jump_sound = pygame.mixer.Sound("audio/audio_jump.mp3")
+        self.jump_sound.set_volume(0.5)
+    
+    def player_input(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE] and self.rect.bottom >= 300:
+            self.gravity = -22
+            self.jump_sound.play()
+    
+    def apply_gravity(self):
+        self.gravity += 1
+        self.rect.y += self.gravity
+        if self.rect.bottom >= 300:
+            self.rect.bottom = 300
+            
+    def animation_state(self):
+        if self.rect.bottom < 300:
+            self.image = self.player_jump
+        else:
+            self.player_index += 0.1
+            if self.player_index >= len(self.player_walk):
+                self.player_index = 0
+            self.image = self.player_walk[int(self.player_index)]
+    
+    def update(self):
+        self.player_input()
+        self.apply_gravity()
+        self.animation_state()
+        
+        
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self,type):
+        super().__init__()
+        
+        if  type == "fly":
+            fly_frame_1 = pygame.image.load("graphics/Fly/Fly1.png").convert_alpha()
+            fly_frame_2 = pygame.image.load("graphics/Fly/Fly2.png").convert_alpha()
+            self.frames = [fly_frame_1, fly_frame_2]
+            y_pos = 210
+        else:
+            snail_frame_1 = pygame.image.load("graphics/snail/snail1.png").convert_alpha() #convierte imagenes en algo que pygame puede procesar
+            snail_frame_2 = pygame.image.load("graphics/snail/snail2.png").convert_alpha()
+            self.frames = [snail_frame_1, snail_frame_2] # lista con todos los frames
+            y_pos = 300
+        
+        self.animation_index = 0
+        self.image = self.frames[self.animation_index]
+        self.rect = self.image.get_rect(midbottom = (random.randint(900,1100), y_pos))
+        
+    def animation_state(self):
+        self.animation_index += 0.1
+        if self.animation_index >= len(self.frames):
+            self.animation_index = 0
+        self.image = self.frames[int(self.animation_index)]
+        
+    def update(self):
+        self.animation_state()
+        self.rect.x -= 6
+        self.destroy()
+    
+    def destroy(self):
+        if self.rect.x <= -100:
+            self.kill()
+
+
 
 
 # score function
@@ -36,6 +119,13 @@ def collisions (player, obstacles):
                 return False # si jugador choca con obstaculo retorna False
     return True # si jugador no choca con nada return True
 
+def collision_sprite():
+    if pygame.sprite.spritecollide(player.sprite, obstacle_group, False): # necesitamos player.sprite para acceder al sprite dentro de player group single
+        obstacle_group.empty() # limpia la lista cuando hay colision
+        return False
+    else:
+        return True
+
 # animations de correr y saltar
 def player_animation():
     global player_surface, player_index
@@ -57,7 +147,17 @@ test_font = pygame.font.Font("font/Pixeltype.ttf", 50) # al final es font type, 
 game_active = False # si esta en True empieza el juego, si esta en false primero ira al else statement y mostrara el game over screen
 start_time = 0 #variable para resetear el contador a 0
 score = 0
+bg_music = pygame.mixer.Sound("audio/music.wav")
+bg_music.play(loops= -1)
+bg_music.set_volume(0.3)
+# groups
 
+# player
+player = pygame.sprite.GroupSingle() # se asigna el jugador a un grupo
+player.add( Player())
+
+# obstacles
+obstacle_group = pygame.sprite.Group()
 
 
 # sky surface
@@ -141,10 +241,11 @@ while True: #mantiene el juego abierto por siempre
             
             # evento de timer de obstaculos (coloca un enemigo desde la lista y le hace append)
             if event.type == obstacle_timer: # timer de spawneo de bichos (dentro de game_active)
-                if randint(0,2):
-                    obstacle_rect_list.append(snail_surface.get_rect(bottomright = (randint(900,1100),300)))
-                else:
-                    obstacle_rect_list.append(fly_surface.get_rect(bottomright = (randint(900,1100),210)))                
+                obstacle_group.add(Obstacle(choice(["fly", "snail", "snail"]))) # llamo clase de obstaculos
+                # if randint(0,2):
+                #     obstacle_rect_list.append(snail_surface.get_rect(bottomright = (randint(900,1100),300)))
+                # else:
+                #     obstacle_rect_list.append(fly_surface.get_rect(bottomright = (randint(900,1100),210)))                
             
             # event animacion de snail
             if event.type == snail_animation_timer:
@@ -161,7 +262,6 @@ while True: #mantiene el juego abierto por siempre
                 else:
                     fly_frame_index = 0
                 fly_surface = fly_frames[fly_frame_index]
-                
             
         else:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
@@ -169,16 +269,7 @@ while True: #mantiene el juego abierto por siempre
                 # snail_rectangle.left = 800
                 start_time = int(pygame.time.get_ticks() / 1000) #resetea contador a cero
                 
-        # if game_active:
-        #     if event.type == snail_animation_timer:
-        #         if snail_frame_index == 0:
-        #             snail_frame_index == 1
-        #         else:
-        #             snail_frame_index = 0
-        #         snail_surface = snail_frames[snail_frame_index]  
-    
-
-
+                
     #codigo del juego activo. 
     if game_active:
         # en el screen blit el orden que lo coloco es el orden en que se generaran.
@@ -188,23 +279,27 @@ while True: #mantiene el juego abierto por siempre
         score = display_score()
         
         #player
-        player_gravity += 1 #aumento exponencial del valor de gravedad
-        player_rectangle.y += player_gravity # sumamos la gravedad a el eje y  del rectangulo del jugador
-        if player_rectangle.bottom >= 300: 
-            player_rectangle.bottom = 300
-            
-        player_animation() # llamamos funcion de animaciones del jugador
-        screen.blit(player_surface,player_rectangle)
+        # player_gravity += 1 #aumento exponencial del valor de gravedad
+        # player_rectangle.y += player_gravity # sumamos la gravedad a el eje y  del rectangulo del jugador
+        # if player_rectangle.bottom >= 300: 
+        #     player_rectangle.bottom = 300 
+        # screen.blit(player_surface,player_rectangle)
+        # player_animation() # llamamos funcion de animaciones del jugador
+        
+        # metodos de clases
+        player.draw(screen) # se llama al jugador aca
+        player.update()
+        
+        obstacle_group.draw(screen)
+        obstacle_group.update()
+        game_active = collision_sprite()
         
         # obstacle movement
         
-        obstacle_rect_list = obstacle_movement(obstacle_rect_list)
-        
-        
-        
+        # obstacle_rect_list = obstacle_movement(obstacle_rect_list)
         
         #collision
-        game_active = collisions(player_rectangle, obstacle_rect_list) # corre funcion collisions con player rectanlge y obstacle rect
+        # game_active = collisions(player_rectangle, obstacle_rect_list) # corre funcion collisions con player rectanlge y obstacle rect
         
     #que pasa luego del gameover, intro o menu
     else:
