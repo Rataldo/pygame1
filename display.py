@@ -36,6 +36,18 @@ def collisions (player, obstacles):
                 return False # si jugador choca con obstaculo retorna False
     return True # si jugador no choca con nada return True
 
+# animations de correr y saltar
+def player_animation():
+    global player_surface, player_index
+    
+    if player_rectangle.bottom < 300:
+        player_surface = player_jump
+    else:
+        player_index += 0.1
+        if player_index >= len(player_walk):
+            player_index = 0
+        player_surface = player_walk[int(player_index)]
+
 # comienza todo
 pygame.init() 
 screen = pygame.display.set_mode((800,400)) #valores de la tupla son weidth and height
@@ -56,16 +68,32 @@ ground_surface = pygame.image.load("graphics/ground.png").convert()
 # score_rectangle = score_surface.get_rect(center = (400,50))
 
 # obstacles
-snail_surface = pygame.image.load("graphics/snail/snail1.png").convert_alpha() #convierte imagenes en algo que pygame puede procesar
-# snail_rectangle = snail_surface.get_rect(bottomright = (600,300))
 
-fly_surface = pygame.image.load("graphics/Fly/Fly1.png").convert_alpha()
+# snail
+snail_frame_1 = pygame.image.load("graphics/snail/snail1.png").convert_alpha() #convierte imagenes en algo que pygame puede procesar
+snail_frame_2 = pygame.image.load("graphics/snail/snail2.png").convert_alpha()
+snail_frames = [snail_frame_1, snail_frame_2] # lista con todos los frames
+snail_frame_index = 0 # indice de frames (para cambiar entre frames)
+snail_surface = snail_frames[snail_frame_index] # surface que hace que el indice de frames cambie
+
+# fly
+fly_frame_1 = pygame.image.load("graphics/Fly/Fly1.png").convert_alpha()
+fly_frame_2 = pygame.image.load("graphics/Fly/Fly2.png").convert_alpha()
+fly_frames = [fly_frame_1, fly_frame_2]
+fly_frame_index = 0
+fly_surface = fly_frames[fly_frame_index]
 
 obstacle_rect_list = []
 
 # player surface and gravity
-player_surface = pygame.image.load("graphics/Player/player_walk_1.png").convert_alpha()
-player_rectangle = player_surface.get_rect(midbottom = (50,300)) # toma de referencia el punto topleft del rectangulo para colocar las coordenadas del display
+player_walk_1 = pygame.image.load("graphics/Player/player_walk_1.png").convert_alpha()
+player_walk_2 = pygame.image.load("graphics/Player/player_walk_2.png").convert_alpha()
+player_rectangle = player_walk_1.get_rect(midbottom = (50,300)) # toma de referencia el punto topleft del rectangulo para colocar las coordenadas del display
+player_walk = [player_walk_1, player_walk_2] # lista con animaciones de caminar
+player_index = 0 # indice para ser usado debajo
+player_surface = player_walk[player_index] # usamos walking animation con el indice, el cual va a ir alternando
+
+player_jump = pygame.image.load("graphics/Player/jump.png").convert_alpha()
 player_gravity = 0
 
 # intro screen
@@ -84,6 +112,13 @@ continue_rectangle = continue_surface.get_rect(center = (400,350))
 # Timer
 obstacle_timer = pygame.USEREVENT + 1 # se pone +1 para evitar conflicto con USEREVENTS de pygame
 pygame.time.set_timer(obstacle_timer, 1500)
+
+snail_animation_timer = pygame.USEREVENT + 2
+pygame.time.set_timer(snail_animation_timer, 500)
+
+
+fly_animation_timer = pygame.USEREVENT + 3
+pygame.time.set_timer(fly_animation_timer, 200)
 
 
 # Todo va a ocurrir dentro del while loop. arriba solo definimos algunas variables
@@ -110,13 +145,39 @@ while True: #mantiene el juego abierto por siempre
                     obstacle_rect_list.append(snail_surface.get_rect(bottomright = (randint(900,1100),300)))
                 else:
                     obstacle_rect_list.append(fly_surface.get_rect(bottomright = (randint(900,1100),210)))                
+            
+            # event animacion de snail
+            if event.type == snail_animation_timer:
+                if snail_frame_index == 0:
+                    snail_frame_index = 1
+                else:
+                    snail_frame_index = 0
+                snail_surface = snail_frames[snail_frame_index]    
                 
+            # event animacion de fly
+            if event.type == fly_animation_timer:
+                if fly_frame_index == 0:
+                    fly_frame_index = 1
+                else:
+                    fly_frame_index = 0
+                fly_surface = fly_frames[fly_frame_index]
+                
+            
         else:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 game_active = True
                 # snail_rectangle.left = 800
                 start_time = int(pygame.time.get_ticks() / 1000) #resetea contador a cero
-        
+                
+        # if game_active:
+        #     if event.type == snail_animation_timer:
+        #         if snail_frame_index == 0:
+        #             snail_frame_index == 1
+        #         else:
+        #             snail_frame_index = 0
+        #         snail_surface = snail_frames[snail_frame_index]  
+    
+
 
     #codigo del juego activo. 
     if game_active:
@@ -131,6 +192,8 @@ while True: #mantiene el juego abierto por siempre
         player_rectangle.y += player_gravity # sumamos la gravedad a el eje y  del rectangulo del jugador
         if player_rectangle.bottom >= 300: 
             player_rectangle.bottom = 300
+            
+        player_animation() # llamamos funcion de animaciones del jugador
         screen.blit(player_surface,player_rectangle)
         
         # obstacle movement
